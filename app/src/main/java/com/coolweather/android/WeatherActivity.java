@@ -2,6 +2,11 @@ package com.coolweather.android;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
@@ -9,6 +14,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -28,6 +34,9 @@ import okhttp3.Response;
 
 public class WeatherActivity extends AppCompatActivity {
 
+    public DrawerLayout drawerLayout;
+
+    private Button navButton;
     private ScrollView weatherLayout;
 
     private TextView titleCity;
@@ -52,6 +61,10 @@ public class WeatherActivity extends AppCompatActivity {
 
     private ImageView bingpicImg;
 
+    public SwipeRefreshLayout switchCompat;
+
+    private String mWeatherId;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate (savedInstanceState);
@@ -67,84 +80,89 @@ public class WeatherActivity extends AppCompatActivity {
         setContentView (R.layout.activity_weather);
 
 
+        drawerLayout = (DrawerLayout)findViewById (R.id.drawer_layout);
 
-    //初始化各控件
-    bingpicImg =(ImageView)
+        navButton = (Button)findViewById (R.id.nav_button);
+        navButton.setOnClickListener (new View.OnClickListener () {
+            @Override
+            public void onClick(View view) {
+                drawerLayout.openDrawer (GravityCompat.START);
+            }
+        });
 
-    findViewById(R.id.bing_pic_img);
+        //初始化各控件
+        bingpicImg = (ImageView)
 
-    weatherLayout =(ScrollView)
+                findViewById (R.id.bing_pic_img);
 
-    findViewById(R.id.weather_layout);
+        weatherLayout = (ScrollView)
 
-    titleCity =(TextView)
+                findViewById (R.id.weather_layout);
 
-    findViewById(R.id.title_city);
+        titleCity = (TextView)
 
-    titleUpdateTime =(TextView)
+                findViewById (R.id.title_city);
 
-    findViewById(R.id.title_update_time);
+        titleUpdateTime = (TextView)
 
-    degreeText =(TextView)
+                findViewById (R.id.title_update_time);
 
-    findViewById(R.id.degree_text);
+        degreeText = (TextView)
 
-    weatherInfoText =(TextView)
+                findViewById (R.id.degree_text);
 
-    findViewById(R.id.weather_info_text);
+        weatherInfoText = (TextView)
 
-    forecastLayout =(LinearLayout)
+                findViewById (R.id.weather_info_text);
 
-    findViewById(R.id.forecast_layout);
+        forecastLayout = (LinearLayout)
 
-    aqiText =(TextView)
+                findViewById (R.id.forecast_layout);
 
-    findViewById(R.id.aqi_text);
+        aqiText = (TextView)
 
-    pm25Text =(TextView)
+                findViewById (R.id.aqi_text);
 
-    findViewById(R.id.pm25_text);
+        pm25Text = (TextView)
 
-    comfortText =(TextView)
+                findViewById (R.id.pm25_text);
 
-    findViewById(R.id.comfort_text);
+        comfortText = (TextView)
 
-    carWashText =(TextView)
+                findViewById (R.id.comfort_text);
 
-    findViewById(R.id.car_wash_text);
+        carWashText = (TextView)
 
-    sportText =(TextView)
+                findViewById (R.id.car_wash_text);
 
-    findViewById(R.id.sport_text);
+        sportText = (TextView)
 
-    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences (this);
-    String weatherString = prefs.getString ("weather", null);
-    String bingPic = prefs.getString ("bing_pic", null);
-        if(bingPic !=null)
+                findViewById (R.id.sport_text);
 
-    {
-        Glide.with (this).load (bingPic).into (bingpicImg);
-    }else
+        switchCompat = (SwipeRefreshLayout) findViewById (R.id.switchc);
+        switchCompat.setColorSchemeResources (R.color.colorPrimary);
 
-    {
-        loadBingPic ();
+
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences (this);
+        String weatherString = prefs.getString ("weather", null);
+        if (weatherString != null) {
+            //有缓存时直接解析天气数据
+            Weather weather = Utility.handleWeatherResponse (weatherString);
+            mWeatherId = weather.basic.weatherId;
+            showWeatherInfo (weather);
+        } else {
+            //无缓存时去服务器查询天气
+            mWeatherId = getIntent ().getStringExtra ("weather_id");
+            weatherLayout.setVisibility (View.VISIBLE);
+            requestWeather (mWeatherId);
+        }
+        switchCompat.setOnRefreshListener (new SwipeRefreshLayout.OnRefreshListener () {
+            @Override
+            public void onRefresh() {
+                requestWeather (mWeatherId);
+            }
+        });
     }
-        if(weatherString !=null)
-
-    {
-        //有缓存时直接解析天气数据
-        Weather weather = Utility.handleWeatherResponse (weatherString);
-        showWeatherInfo (weather);
-    }else
-
-    {
-        //无缓存时去服务器查询天气
-        String weatherId = getIntent ().getStringExtra ("weather_id");
-        weatherLayout.setVisibility (View.VISIBLE);
-        requestWeather (weatherId);
-    }
-
-}
 
     /**
      * 根据天气id请求城市天气信息
@@ -161,6 +179,7 @@ public class WeatherActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         Toast.makeText (WeatherActivity.this,"获取天气信息失败",Toast.LENGTH_SHORT).show ();
+                        switchCompat.setRefreshing (false);
                     }
                 });
             }
@@ -177,6 +196,7 @@ public class WeatherActivity extends AppCompatActivity {
                                     .getDefaultSharedPreferences (WeatherActivity.this).edit ();
                             editor.putString ("weather",responseText);
                             editor.apply ();
+                            mWeatherId = weather.basic.weatherId;
                             showWeatherInfo (weather);
                         }else {
                             Toast.makeText (WeatherActivity.this,"获取天气信息失败",Toast.LENGTH_SHORT).show ();
